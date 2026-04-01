@@ -218,135 +218,149 @@
 </div>
 
 <script>
-(function() {
-  const WEBHOOK_URL = 'https://n8n.orbitai.ru/webhook/0a536852-5986-40fc-8ebe-b526e469d193/chat';
-  const messagesEl = document.getElementById('messages');
-  const inputEl = document.getElementById('input');
-  const sendBtn = document.getElementById('sendBtn');
+  (function() {
+    const WEBHOOK_URL = 'https://n8n.orbitai.ru/webhook/0a536852-5986-40fc-8ebe-b526e469d193/chat';
+    const REQUEST_TIMEOUT = 120000; // 2 минуты
 
-  // Generate unique session ID
-  let sessionId = sessionStorage.getItem('chat_session_id');
-  if (!sessionId) {
-    sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-    sessionStorage.setItem('chat_session_id', sessionId);
-  }
+    const messagesEl = document.getElementById('messages');
+    const inputEl = document.getElementById('input');
+    const sendBtn = document.getElementById('sendBtn');
 
-  let isLoading = false;
-
-  // Show initial bot message
-  addMessage('bot', 'Здравствуйте! Меня зовут Степан, менеджер компании «Окна Будущего». Какой у вас вопрос?');
-
-  // Auto-resize textarea
-  inputEl.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-  });
-
-  // Send on Enter (Shift+Enter for new line)
-  inputEl.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+    // Generate unique session ID
+    let sessionId = sessionStorage.getItem('chat_session_id');
+    if (!sessionId) {
+      sessionId = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+      sessionStorage.setItem('chat_session_id', sessionId);
     }
-  });
 
-  sendBtn.addEventListener('click', sendMessage);
+    let isLoading = false;
 
-  function renderMarkdown(text) {
-    // Render markdown images: ![alt](url)
-    let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, url) {
-      return '<img src="' + url + '" alt="' + alt + '" loading="lazy" onclick="window.open(this.src,\'_blank\')">';
+    // Show initial bot message
+    addMessage('bot', 'Здравствуйте! Меня зовут Степан, менеджер компании «Окна Будущего». Какой у вас вопрос?');
+
+    // Auto-resize textarea
+    inputEl.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
     });
-    // Render markdown links: [text](url)
-    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#2563eb">$1</a>');
-    // Render bold: **text**
-    html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-    // Line breaks
-    html = html.replace(/\n/g, '<br>');
-    return html;
-  }
 
-  function addMessage(role, text) {
-    const div = document.createElement('div');
-    div.className = 'msg ' + role;
-    if (role === 'bot') {
-      div.innerHTML = renderMarkdown(text);
-    } else {
-      div.textContent = text;
-    }
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-    return div;
-  }
-
-  function showTyping() {
-    const div = document.createElement('div');
-    div.className = 'msg bot typing';
-    div.id = 'typing';
-    div.innerHTML = '<span></span><span></span><span></span>';
-    messagesEl.appendChild(div);
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
-
-  function hideTyping() {
-    const el = document.getElementById('typing');
-    if (el) el.remove();
-  }
-
-  async function sendMessage() {
-    const text = inputEl.value.trim();
-    if (!text || isLoading) return;
-
-    // Show user message
-    addMessage('user', text);
-    inputEl.value = '';
-    inputEl.style.height = 'auto';
-
-    // Disable input
-    isLoading = true;
-    sendBtn.disabled = true;
-    inputEl.disabled = true;
-
-    showTyping();
-
-    try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'sendMessage',
-          chatInput: text,
-          sessionId: sessionId
-        })
-      });
-
-      hideTyping();
-
-      if (!response.ok) {
-        throw new Error('Ошибка сервера: ' + response.status);
+    // Send on Enter (Shift+Enter for new line)
+    inputEl.addEventListener('keydown', function(e) {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
       }
+    });
 
-      const data = await response.json();
+    sendBtn.addEventListener('click', sendMessage);
 
-      // n8n chat trigger returns { output: "..." }
-      const botText = data.output || data.text || data.response || JSON.stringify(data);
-      addMessage('bot', botText);
-
-    } catch (err) {
-      hideTyping();
-      addMessage('bot', 'Извините, произошла ошибка соединения. Попробуйте ещё раз.');
-      console.error('Chat error:', err);
-    } finally {
-      isLoading = false;
-      sendBtn.disabled = false;
-      inputEl.disabled = false;
-      inputEl.focus();
+    function renderMarkdown(text) {
+      // Render markdown images: ![alt](url)
+      let html = text.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, function(match, alt, url) {
+        return '<img src="' + url + '" alt="' + alt + '" loading="lazy" onclick="window.open(this.src,\'_blank\')">';
+      });
+      // Render markdown links: [text](url)
+      html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:#2563eb">$1</a>');
+      // Render bold: **text**
+      html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      // Line breaks
+      html = html.replace(/\n/g, '<br>');
+      return html;
     }
-  }
 
-  // Focus input on load
-  inputEl.focus();
-})();
+    function addMessage(role, text) {
+      const div = document.createElement('div');
+      div.className = 'msg ' + role;
+      if (role === 'bot') {
+        div.innerHTML = renderMarkdown(text);
+      } else {
+        div.textContent = text;
+      }
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+      return div;
+    }
+
+    function showTyping() {
+      const div = document.createElement('div');
+      div.className = 'msg bot typing';
+      div.id = 'typing';
+      div.innerHTML = '<span></span><span></span><span></span>';
+      messagesEl.appendChild(div);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function hideTyping() {
+      const el = document.getElementById('typing');
+      if (el) el.remove();
+    }
+
+    async function sendMessage() {
+      const text = inputEl.value.trim();
+      if (!text || isLoading) return;
+
+      // Show user message
+      addMessage('user', text);
+      inputEl.value = '';
+      inputEl.style.height = 'auto';
+
+      // Disable input
+      isLoading = true;
+      sendBtn.disabled = true;
+      inputEl.disabled = true;
+
+      showTyping();
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
+
+      try {
+        const response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'sendMessage',
+            chatInput: text,
+            sessionId: sessionId
+          }),
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        hideTyping();
+
+        if (!response.ok) {
+          throw new Error('Ошибка сервера: ' + response.status);
+        }
+
+        const data = await response.json();
+
+        // n8n chat trigger returns { output: "..." }
+        const botText = data.output || data.text || data.response || JSON.stringify(data);
+        addMessage('bot', botText);
+
+      } catch (err) {
+        clearTimeout(timeoutId);
+        hideTyping();
+
+        if (err.name === 'AbortError') {
+          addMessage('bot', 'Время ожидания ответа истекло (2 минуты). Попробуйте ещё раз.');
+        } else {
+          addMessage('bot', 'Извините, произошла ошибка соединения. Попробуйте ещё раз.');
+        }
+
+        console.error('Chat error:', err);
+      } finally {
+        isLoading = false;
+        sendBtn.disabled = false;
+        inputEl.disabled = false;
+        inputEl.focus();
+      }
+    }
+
+    // Focus input on load
+    inputEl.focus();
+  })();
 </script>
 
 </body>
