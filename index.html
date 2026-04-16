@@ -359,7 +359,7 @@
       <iframe id="pdfFrame" src=""></iframe>
       <div class="pdf-modal-actions">
         <button class="pdf-modal-btn secondary" onclick="closePdfModal()">Закрыть</button>
-        <button class="pdf-modal-btn primary" id="pdfDownloadBtn" onclick="window.open(window.pdfCurrentUrl,'_blank')">Открыть в новой вкладке</button>
+        <button class="pdf-modal-btn primary" id="pdfDownloadBtn" onclick="window.open(pdfCurrentUrl,'_blank')">Открыть в новой вкладке</button>
       </div>
     </div>
   </div>
@@ -374,6 +374,47 @@
     </button>
   </div>
 </div>
+
+<script>
+  // Global PDF functions — must be outside IIFE for onclick handlers
+  var pdfCurrentUrl = '';
+
+  function openPdfViewer(url) {
+    pdfCurrentUrl = url;
+    var embedUrl = null;
+
+    var fileMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
+    if (fileMatch) {
+      embedUrl = 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
+    }
+
+    var folderMatch = url.match(/drive\.google\.com\/drive\/[^/]*\/?(?:folders\/|u\/\d+\/folders\/)([^?#]+)/);
+    if (folderMatch) {
+      embedUrl = 'https://drive.google.com/embeddedfolderview?id=' + folderMatch[1] + '#grid';
+    }
+
+    if (url.match(/\.pdf(\?|$)/i)) {
+      embedUrl = url;
+    }
+
+    if (embedUrl) {
+      document.getElementById('pdfModal').style.display = 'flex';
+      document.getElementById('pdfFrame').src = embedUrl;
+    } else {
+      window.open(url, '_blank');
+    }
+  }
+
+  function closePdfModal(e) {
+    if (e && e.target !== e.currentTarget) return;
+    document.getElementById('pdfModal').style.display = 'none';
+    document.getElementById('pdfFrame').src = '';
+  }
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closePdfModal();
+  });
+</script>
 
 <script>
   (function() {
@@ -412,9 +453,6 @@
 
     sendBtn.addEventListener('click', sendMessage);
 
-    // PDF functions — exposed globally for onclick handlers
-    window.pdfCurrentUrl = '';
-
     function isPdfLink(url) {
       return url.includes('drive.google.com') || url.endsWith('.pdf') || url.includes('/catalog');
     }
@@ -430,46 +468,6 @@
         '<div class="pdf-card-arrow">→</div>' +
         '</div>';
     }
-
-    window.openPdfViewer = function(url) {
-      window.pdfCurrentUrl = url;
-      let embedUrl = null;
-
-      // Google Drive file: /file/d/ID/... → /file/d/ID/preview
-      const fileMatch = url.match(/drive\.google\.com\/file\/d\/([^/]+)/);
-      if (fileMatch) {
-        embedUrl = 'https://drive.google.com/file/d/' + fileMatch[1] + '/preview';
-      }
-
-      // Google Drive folder: /folders/ID → embeddedfolderview
-      const folderMatch = url.match(/drive\.google\.com\/drive\/[^/]*\/?(?:folders\/|u\/\d+\/folders\/)([^?#]+)/);
-      if (folderMatch) {
-        embedUrl = 'https://drive.google.com/embeddedfolderview?id=' + folderMatch[1] + '#grid';
-      }
-
-      // Direct PDF URL
-      if (url.match(/\.pdf(\?|$)/i)) {
-        embedUrl = url;
-      }
-
-      if (embedUrl) {
-        document.getElementById('pdfModal').style.display = 'flex';
-        document.getElementById('pdfFrame').src = embedUrl;
-      } else {
-        window.open(url, '_blank');
-      }
-    };
-
-    window.closePdfModal = function(e) {
-      if (e && e.target !== e.currentTarget) return;
-      document.getElementById('pdfModal').style.display = 'none';
-      document.getElementById('pdfFrame').src = '';
-    };
-
-    // Close modal on Escape
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') window.closePdfModal();
-    });
 
     function renderMarkdown(text) {
       // Render markdown images: ![alt](url)
